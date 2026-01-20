@@ -1,0 +1,19 @@
+.env
+
+# local/build artifacts
+/tmp/
+/uploads/
+/compressed/
+/tmp/
+
+# editors
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+/Frontend/admin/node_modules/
+/Frontend/owner/node_modules/
+
+.env

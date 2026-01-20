@@ -1,0 +1,1107 @@
+package routers
+
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+)
+
+func servePDFUI(c *gin.Context) {
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(pdfUIHTML))
+}
+
+const pdfUIHTML = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PDF Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;600&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root { 
+      color-scheme: dark;
+      --bg-primary: #0a0a0f;
+      --bg-secondary: #13131a;
+      --bg-tertiary: #1a1a24;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --accent-light: rgba(99, 102, 241, 0.1);
+      --text-primary: #e4e4e7;
+      --text-secondary: #a1a1aa;
+      --text-muted: #71717a;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(99, 102, 241, 0.5);
+      --success: #22c55e;
+      --success-bg: rgba(34, 197, 94, 0.1);
+      --error: #ef4444;
+      --error-bg: rgba(239, 68, 68, 0.1);
+      --shadow: rgba(0, 0, 0, 0.5);
+    }
+    
+    body { 
+      font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: 
+        radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(168, 85, 247, 0.06) 0%, transparent 50%);
+      animation: drift 30s ease-in-out infinite alternate;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    @keyframes drift {
+      to {
+        transform: translate(5%, 5%) scale(1.02);
+      }
+    }
+
+    .wrap { 
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 40px 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .header {
+      margin-bottom: 48px;
+      text-align: center;
+      animation: fadeInDown 0.8s ease-out;
+    }
+
+    @keyframes fadeInDown {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .logo {
+      font-family: 'Crimson Pro', serif;
+      font-size: 56px;
+      font-weight: 300;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+    }
+
+    .tagline {
+      font-size: 14px;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .card { 
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 32px;
+      margin-bottom: 24px;
+      backdrop-filter: blur(10px);
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      animation: fadeInUp 0.8s ease-out backwards;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .card:hover::before {
+      opacity: 1;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .card:nth-child(2) { animation-delay: 0.1s; }
+    .card:nth-child(3) { animation-delay: 0.2s; }
+    .card:nth-child(4) { animation-delay: 0.3s; }
+
+    h1 { 
+      font-family: 'Crimson Pro', serif;
+      font-size: 32px;
+      font-weight: 400;
+      margin-bottom: 8px;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+    }
+    
+    .section-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 28px;
+      letter-spacing: 0.01em;
+    }
+
+    .grid { 
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      margin-top: 28px;
+    }
+
+    .form-group {
+      position: relative;
+    }
+
+    label { 
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      transition: color 0.2s ease;
+    }
+
+    input, select { 
+      width: 100%;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 14px;
+      transition: all 0.3s ease;
+      outline: none;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--border-focus);
+      background: var(--bg-secondary);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
+    }
+
+    input:hover, select:hover {
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    select {
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L11 1' stroke='%23a1a1aa' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 16px center;
+      padding-right: 40px;
+    }
+
+    input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      accent-color: var(--accent);
+    }
+
+    .row { 
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+    
+    .row > * { 
+      flex: 1;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    .checkbox-row:hover {
+      border-color: var(--border-focus);
+      background: rgba(99, 102, 241, 0.05);
+    }
+
+    .checkbox-row input[type="checkbox"] {
+      margin: 0;
+    }
+
+    .checkbox-row label {
+      margin: 0;
+      cursor: pointer;
+      flex: 1;
+    }
+
+    .actions { 
+      display: flex;
+      gap: 12px;
+      margin-top: 32px;
+      flex-wrap: wrap;
+    }
+    
+    button { 
+      padding: 14px 28px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      letter-spacing: 0.02em;
+    }
+
+    button::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      transform: translate(-50%, -50%);
+      transition: width 0.6s, height 0.6s;
+    }
+
+    button:hover::before {
+      width: 300px;
+      height: 300px;
+    }
+
+    button:hover {
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+    
+    button.primary { 
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    }
+
+    button.primary:hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+      box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    button:disabled:hover {
+      border-color: var(--border);
+      box-shadow: none;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+
+    .status-badge.logged-in {
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid rgba(34, 197, 94, 0.2);
+    }
+
+    .status-badge.logged-out {
+      background: var(--error-bg);
+      color: var(--error);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .status-badge::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .out { 
+      margin-top: 28px;
+    }
+    
+    .err { 
+      color: var(--error);
+      font-size: 13px;
+      white-space: pre-wrap;
+      font-family: 'Courier New', monospace;
+      padding: 16px;
+      background: var(--error-bg);
+      border-radius: 12px;
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      margin-top: 12px;
+      line-height: 1.5;
+    }
+    
+    .ok { 
+      font-size: 13px;
+      color: var(--success);
+    }
+
+    .muted { 
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    
+    .list { 
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+    }
+    
+    a.dl { 
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      text-decoration: none;
+      color: var(--text-primary);
+      background: var(--bg-tertiary);
+      transition: all 0.3s ease;
+      font-weight: 500;
+      position: relative;
+      overflow: hidden;
+    }
+
+    a.dl::before {
+      content: '↓';
+      font-size: 20px;
+      color: var(--accent);
+      transition: transform 0.3s ease;
+    }
+
+    a.dl:hover {
+      border-color: var(--accent);
+      background: var(--accent-light);
+      transform: translateX(4px);
+    }
+
+    a.dl:hover::before {
+      transform: translateY(4px);
+    }
+    
+    iframe { 
+      width: 100%;
+      height: 800px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: white;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+    
+    .full { 
+      grid-column: 1 / -1;
+    }
+
+    .auth-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      margin: 32px 0;
+    }
+
+    @media (max-width: 768px) {
+      .wrap {
+        padding: 24px 16px;
+      }
+
+      .logo {
+        font-size: 40px;
+      }
+
+      .card {
+        padding: 24px;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .actions {
+        flex-direction: column;
+      }
+
+      button {
+        width: 100%;
+      }
+
+      iframe {
+        height: 500px;
+      }
+    }
+
+    /* Loading spinner */
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <div class="card" id="loginSection" style="display:none;">
+      <h1>Authentication</h1>
+      <div class="section-desc">Secure access required to continue</div>
+      
+      <div class="grid">
+        <div class="full">
+          <label>Password</label>
+          <input id="password" type="password" placeholder="Enter your password" />
+        </div>
+        
+        <div class="full">
+          <div class="auth-actions">
+            <button id="btnLogin">Sign In</button>
+            <div id="authState" class="status-badge logged-out">Not Authenticated</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="appSection" style="display:none;">
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px;">
+          <div>
+            <h1>Document Generator</h1>
+            <div class="section-desc">Configure and generate professional PDF contracts</div>
+          </div>
+          <button id="btnLogout" style="margin-top: 0;">Sign Out</button>
+        </div>
+
+        <div class="actions" style="margin-bottom: 12px;">
+          <button id="btnPaste">Paste</button>
+        </div>
+
+        <div class="grid">
+  
+          <div class="form-group">
+            <label>Region</label>
+            <select id="realm">
+              <option value="iraq">Iraq</option>
+              <option value="romania">Romania</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Document ID</label>
+            <input id="numId" type="number" value="1" placeholder="Numeric identifier" />
+          </div>
+          
+          <div class="form-group">
+            <label>Creation Date</label>
+            <input id="createdAt" placeholder="2026-01-11T12:34:56Z" />
+          </div>
+
+          <div class="form-group">
+            <label>Item Quantity</label>
+            <input id="itemAmount" type="number" step="any" value="1" placeholder="Amount" />
+          </div>
+          
+          <div class="form-group">
+            <label>Currency Amount</label>
+            <input id="currencyAmount" type="number" step="any" value="100" placeholder="Value" />
+          </div>
+
+          <div class="form-group">
+            <label>Currency</label>
+            <select id="currency">
+              <option value="usd">USD</option>
+              <option value="iqd">IQD</option>
+              <option value="yolk">YOLK</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label>Payment Method</label>
+            <input id="paymentMethod" value="cash" placeholder="Cash, Bank Transfer..." />
+          </div>
+
+          <div class="form-group">
+            <label>Client Name</label>
+            <input id="userName" value="Test User" placeholder="Full name" />
+          </div>
+          
+          <div class="form-group">
+            <label>Phone Number</label>
+            <input id="userPhone" value="+964" placeholder="+964123567" />
+          </div>
+
+          <div class="form-group">
+            <label>Email Address</label>
+            <input id="userEmail" value="@gmail.com" placeholder="client@example.com" />
+          </div>
+          
+          <div class="form-group">
+            <label>Item Description</label>
+            <select id="item">
+              <option value="hen">hen</option>
+              <option value="cattle">cattle</option>
+              <option value="rooster">rooster</option>
+            </select>
+          </div>
+
+          <div class="form-group full">
+            <label style="margin-bottom: 0">Insurance</label>
+            <div class="checkbox-row">
+              <input id="insurance" type="checkbox" />
+              <label for="insurance">Include Insurance Coverage</label>
+              <span class="muted">(Available for select templates)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="btnGenerate" class="primary">Generate PDFs</button>
+          <button id="btnSend" disabled>Send Contracts</button>
+        </div>
+
+        <div class="out">
+          <div id="status" class="muted"></div>
+          <div id="error" class="err" style="display:none;"></div>
+          <div id="downloads" class="list"></div>
+        </div>
+    </div>
+  </div>
+
+<script>
+  function val(id) { return document.getElementById(id).value; }
+  function num(id) { return Number(document.getElementById(id).value); }
+  function checked(id) { return document.getElementById(id).checked; }
+
+  function normalizeRealm(value) {
+    const v = (value || '').toLowerCase();
+    if (v.includes('romania')) return 'romania';
+    if (v.includes('iraq')) return 'iraq';
+    return v || '';
+  }
+
+  function setSelectValue(id, value) {
+    const sel = document.getElementById(id);
+    const cleaned = (value || '').trim();
+    if (!sel || !cleaned) return;
+    const match = [...sel.options].find(o => o.value.toLowerCase() === cleaned.toLowerCase());
+    if (match) {
+      sel.value = match.value;
+      return;
+    }
+    const opt = document.createElement('option');
+    opt.value = cleaned;
+    opt.textContent = cleaned;
+    sel.appendChild(opt);
+    sel.value = cleaned;
+  }
+
+  function parseNumeric(value) {
+    const n = Number(String(value || '').replace(/[^0-9.-]/g, ''));
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function parseBoolean(value) {
+    const v = (value || '').toLowerCase();
+    if (v.includes('true') || v.includes('yes')) return true;
+    if (v.includes('false') || v.includes('no')) return false;
+    return null;
+  }
+
+  function parseDateToISO(value) {
+    if (!value) return '';
+    const m = value.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(?:,?\s*(\d{1,2}:\d{2}\s*[APMapm]{2})?)?/);
+    if (!m) {
+      const fallback = new Date(value);
+      return isNaN(fallback) ? value : fallback.toISOString();
+    }
+    const month = Number(m[1]);
+    const day = Number(m[2]);
+    const year = Number(m[3].length === 2 ? '20' + m[3] : m[3]);
+    let hours = 0;
+    let minutes = 0;
+    if (m[4]) {
+      const time = m[4].replace(/\s+/g, '').toUpperCase();
+      const parts = time.replace(/(AM|PM)$/i, '').split(':');
+      const ampm = time.slice(-2);
+      hours = Number(parts[0]);
+      minutes = Number(parts[1]);
+      if (ampm === 'PM' && hours < 12) hours += 12;
+      if (ampm === 'AM' && hours === 12) hours = 0;
+    }
+    const dt = new Date(Date.UTC(year, month - 1, day, hours, minutes));
+    return isNaN(dt) ? value : dt.toISOString();
+  }
+
+  function parsePastedContent(raw) {
+    if (!raw) return null;
+    const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (!lines.length) return null;
+
+    const parsed = {};
+
+    for (const line of lines) {
+      if (line.startsWith('📅')) {
+        parsed.createdAt = parseDateToISO(line.replace(/^📅\s*/, ''));
+      } else if (line.startsWith('🆔')) {
+        const n = parseNumeric(line.replace(/^🆔\s*/, ''));
+        if (n !== null) parsed.numId = n;
+      } else if (line.startsWith('🌍')) {
+        parsed.realm = normalizeRealm(line.replace(/^🌍\s*/, '').replace(/^Country:\s*/i, ''));
+      } else if (/Investor name:/i.test(line)) {
+        parsed.userName = line.split(':')[1]?.trim();
+      } else if (/Email:/i.test(line)) {
+        parsed.userEmail = line.split(':')[1]?.trim();
+      } else if (/Phone:/i.test(line)) {
+        parsed.userPhone = line.split(':')[1]?.trim();
+      } else if (/Country:/i.test(line)) {
+        parsed.realm = normalizeRealm(line.split(':')[1]?.trim());
+      } else if (/Item Amount:/i.test(line)) {
+        const amt = parseNumeric(line.split(':')[1]);
+        if (amt !== null) parsed.itemAmount = amt;
+      } else if (/Item:/i.test(line)) {
+        parsed.item = line.split(':')[1]?.trim();
+      } else if (/Payment Method:/i.test(line)) {
+        parsed.paymentMethod = line.split(':')[1]?.trim();
+      } else if (/Currency Amount:/i.test(line)) {
+        const val = parseNumeric(line.split(':')[1]);
+        if (val !== null) parsed.currencyAmount = val;
+      } else if (/Currency:/i.test(line)) {
+        parsed.currency = line.split(':')[1]?.trim();
+      } else if (/Insurance:/i.test(line)) {
+        const boolVal = parseBoolean(line.split(':')[1]);
+        if (boolVal !== null) parsed.insurance = boolVal;
+      }
+    }
+
+    return Object.keys(parsed).length ? parsed : null;
+  }
+
+  function applyParsedData(data) {
+    if (!data) return;
+
+    if (data.realm) {
+      document.getElementById('realm').value = normalizeRealm(data.realm) || 'iraq';
+      ensureItemOptions();
+    }
+
+    if (typeof data.numId === 'number') document.getElementById('numId').value = data.numId;
+    if (data.createdAt) document.getElementById('createdAt').value = data.createdAt;
+    if (typeof data.itemAmount === 'number') document.getElementById('itemAmount').value = data.itemAmount;
+    if (typeof data.currencyAmount === 'number') document.getElementById('currencyAmount').value = data.currencyAmount;
+    if (data.paymentMethod) document.getElementById('paymentMethod').value = data.paymentMethod;
+    if (data.userName) document.getElementById('userName').value = data.userName;
+    if (data.userPhone) document.getElementById('userPhone').value = data.userPhone;
+    if (data.userEmail) document.getElementById('userEmail').value = data.userEmail;
+    if (data.currency) setSelectValue('currency', data.currency);
+    if (data.item) {
+      ensureItemOptions();
+      setSelectValue('item', data.item);
+    }
+    if (typeof data.insurance === 'boolean') document.getElementById('insurance').checked = data.insurance;
+  }
+
+  function getToken() {
+    return localStorage.getItem('pdf_ui_token') || '';
+  }
+
+  function setToken(t) {
+    if (!t) localStorage.removeItem('pdf_ui_token');
+    else localStorage.setItem('pdf_ui_token', t);
+    refreshAuthState();
+  }
+
+  function refreshAuthState() {
+    const el = document.getElementById('authState');
+    const t = getToken();
+    const loginSection = document.getElementById('loginSection');
+    const app = document.getElementById('appSection');
+    
+    if (t) {
+      el.textContent = 'Authenticated';
+      el.className = 'status-badge logged-in';
+      if (loginSection) loginSection.style.display = 'none';
+      if (app) app.style.display = 'block';
+    } else {
+      el.textContent = 'Not Authenticated';
+      el.className = 'status-badge logged-out';
+      if (loginSection) loginSection.style.display = 'block';
+      if (app) app.style.display = 'none';
+    }
+  }
+
+  function authHeaders() {
+    const t = getToken().trim();
+    if (!t) return {};
+    return { 'Authorization': t.startsWith('Bearer ') ? t : ('Bearer ' + t) };
+  }
+
+  let cachedAttachments = [];
+
+  function payload(includeAttachments = false) {
+    const base = {
+      numId: num('numId'),
+      createdAt: val('createdAt').trim(),
+      itemAmount: Number(val('itemAmount')),
+      paymentMethod: val('paymentMethod').trim(),
+      realm: val('realm').trim(),
+      currency: val('currency').trim(),
+      currencyAmount: Number(val('currencyAmount')),
+      userName: val('userName').trim(),
+      userPhone: val('userPhone').trim(),
+      userEmail: val('userEmail').trim(),
+      item: val('item').trim(),
+      insurance: checked('insurance')
+    };
+    if (includeAttachments) {
+      base.attachments = cachedAttachments;
+    }
+    return base;
+  }
+
+  function ensureItemOptions() {
+    const realm = val('realm');
+    const itemSel = document.getElementById('item');
+    if (!itemSel) return;
+
+    // Helper to ensure an option exists
+    const ensureOption = (value, label) => {
+      if (![...itemSel.options].some(o => o.value === value)) {
+        const opt = document.createElement('option');
+        opt.value = value;
+        opt.textContent = label;
+        itemSel.appendChild(opt);
+      }
+    };
+
+    // Helper to remove an option
+    const removeOption = (value) => {
+      const opt = [...itemSel.options].find(o => o.value === value);
+      if (opt) itemSel.removeChild(opt);
+    };
+
+    if (realm === 'iraq') {
+      removeOption('cattle');
+      removeOption('rooster');
+      if (itemSel.value === 'cattle') itemSel.value = 'hen';
+    } else {
+      ensureOption('cattle', 'cattle');
+      ensureOption('rooster', 'rooster');
+    }
+  }
+
+  function setStatus(msg, isOk) {
+    const s = document.getElementById('status');
+    s.className = isOk ? 'ok' : 'muted';
+    s.innerHTML = msg;
+  }
+
+  function toggleSend(enabled) {
+    const btn = document.getElementById('btnSend');
+    if (!btn) return;
+    btn.disabled = !enabled;
+  }
+
+  function setError(msg) {
+    const errEl = document.getElementById('error');
+    if (msg) {
+      errEl.textContent = msg;
+      errEl.style.display = 'block';
+    } else {
+      errEl.textContent = '';
+      errEl.style.display = 'none';
+    }
+  }
+
+  function clearDownloads() {
+    document.getElementById('downloads').innerHTML = '';
+  }
+
+  function base64ToBlobUrl(b64, contentType) {
+    const bin = atob(b64);
+    const len = bin.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+    const blob = new Blob([bytes], { type: contentType || 'application/pdf' });
+    return URL.createObjectURL(blob);
+  }
+
+  async function postJson(url, body) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders()
+      },
+      body: JSON.stringify(body)
+    });
+    return res;
+  }
+
+  // Prefer local helper for email sending; fallback to live endpoint if local is unreachable.
+  const emailEndpointCandidates = [
+    (window.localEmailEndpoint || '').trim(),
+    (window.localStorage && (window.localStorage.getItem('EMAIL_ENDPOINT') || '').trim()) || '',
+    'http://localhost:8090/api/email/deposit',
+    '/api/email/deposit'
+  ].filter(Boolean);
+
+  async function sendDepositEmail(body) {
+    let lastErr = null;
+    for (const url of emailEndpointCandidates) {
+      try {
+        const res = await postJson(url, body);
+        if (res.ok) return res;
+        lastErr = await res.text();
+      } catch (err) {
+        lastErr = err?.message || String(err);
+      }
+    }
+    throw new Error(lastErr || 'Send failed');
+  }
+
+  document.getElementById('createdAt').value = new Date().toISOString();
+  refreshAuthState();
+  ensureItemOptions();
+
+  document.getElementById('btnPaste').addEventListener('click', async () => {
+    setError('');
+    setStatus('<span class="spinner"></span>Reading clipboard...', false);
+
+    let text = '';
+    try {
+      text = await navigator.clipboard.readText();
+    } catch (err) {
+      text = '';
+    }
+
+    if (!text) {
+      text = prompt('Paste contract details here:', '');
+    }
+
+    if (!text) {
+      setStatus('No clipboard content found', false);
+      return;
+    }
+
+    const parsed = parsePastedContent(text);
+    if (!parsed) {
+      setStatus('Could not parse pasted content', false);
+      setError('Please paste the contract block exactly as provided.');
+      return;
+    }
+
+    applyParsedData(parsed);
+    setStatus('Fields updated from pasted content', true);
+  });
+
+  document.getElementById('realm').addEventListener('change', () => {
+    ensureItemOptions();
+  });
+
+  document.getElementById('btnLogin').addEventListener('click', async () => {
+    setError('');
+    setStatus('<span class="spinner"></span>Authenticating...', false);
+
+    const res = await fetch('/api/pdf-ui/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: val('password') })
+    });
+
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.token) {
+      setStatus('Authentication failed', false);
+      setError(data ? JSON.stringify(data, null, 2) : 'Request failed');
+      return;
+    }
+
+    setToken(data.token);
+    setStatus('Successfully authenticated', true);
+  });
+
+  document.getElementById('btnLogout').addEventListener('click', async () => {
+    setToken('');
+    setStatus('Logged out successfully', true);
+  });
+
+  document.getElementById('btnGenerate').addEventListener('click', async () => {
+    setError('');
+    clearDownloads();
+    setStatus('<span class="spinner"></span>Generating PDFs...', false);
+    toggleSend(false);
+
+    if (!getToken()) {
+      setStatus('Generation blocked', false);
+      setError('Please authenticate first.');
+      return;
+    }
+
+    const res = await postJson('/api/pdf/generatePDF', payload());
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok || !data) {
+      setStatus('Generation failed', false);
+      setError(data ? JSON.stringify(data, null, 2) : 'Request failed');
+      return;
+    }
+
+    const attachments = data?.data?.attachments || data?.attachments || [];
+    if (!Array.isArray(attachments) || attachments.length === 0) {
+      setStatus('No attachments returned', false);
+      setError(JSON.stringify(data, null, 2));
+      return;
+    }
+
+    cachedAttachments = attachments;
+
+    const dl = document.getElementById('downloads');
+    for (const a of attachments) {
+      const url = base64ToBlobUrl(a.content, a.contentType);
+      const link = document.createElement('a');
+      link.className = 'dl';
+      link.href = url;
+      link.download = a.filename || 'document.pdf';
+      link.textContent = a.filename || 'document.pdf';
+      dl.appendChild(link);
+    }
+
+    setStatus('Successfully generated ' + attachments.length + ' PDF(s)', true);
+    toggleSend(true);
+  });
+
+  document.getElementById('btnSend').addEventListener('click', async () => {
+    setError('');
+    setStatus('<span class="spinner"></span>Sending contracts...', false);
+
+    if (!getToken()) {
+      setStatus('Send blocked', false);
+      setError('Please authenticate first.');
+      return;
+    }
+
+    document.getElementById('btnSend').disabled = true;
+
+    if (!cachedAttachments || cachedAttachments.length === 0) {
+      setStatus('Send blocked', false);
+      setError('Please generate PDFs first.');
+      toggleSend(true);
+      return;
+    }
+
+    let res;
+    try {
+      res = await sendDepositEmail(payload(true));
+    } catch (err) {
+      setStatus('Send failed', false);
+      setError(err?.message || String(err));
+      toggleSend(true);
+      return;
+    }
+
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok || !data) {
+      setStatus('Send failed', false);
+      setError(data ? JSON.stringify(data, null, 2) : 'Request failed');
+      toggleSend(true);
+      return;
+    }
+
+    setStatus('Contracts sent successfully', true);
+    toggleSend(true);
+  });
+</script>
+</body>
+</html>`
