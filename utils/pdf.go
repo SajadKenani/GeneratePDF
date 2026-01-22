@@ -76,49 +76,8 @@ var defaultPDFOptions = pdfOptions{
 // - Otherwise => 6 attachments: rental, care, sales, auth, withdraw, receipt
 func GetDepositAttachments(ctx context.Context, contractData ContractData) ([]AttachmentProps, error) {
 	debug := debugEnabled()
-	itemLower := strings.ToLower(strings.TrimSpace(contractData.Item))
-
-	// If item mentions cattle or rooster we generate a single robust PDF (merged header/content/footer)
-	if strings.Contains(itemLower, "cattle") || strings.Contains(itemLower, "rooster") {
-		return generatePdfRobust(ctx, contractData)
-	}
-
 	return generateSixAttachments(ctx, contractData, debug)
 }
-
-// generatePdfRobust creates a browser, opens a single tab and renders a merged contract PDF
-// for items like cattle/rooster.
-func generatePdfRobust(ctx context.Context, contractData ContractData) ([]AttachmentProps, error) {
-	debug := debugEnabled()
-	browserCtx, cancelBrowser, err := newBrowserContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer cancelBrowser()
-
-	// create a tab (child context) from the browser context
-	tabCtx, cancelTab := chromedp.NewContext(browserCtx)
-	defer cancelTab()
-
-	// Determine contractType key
-	itemLower := strings.ToLower(strings.TrimSpace(contractData.Item))
-	contractType := "cattle"
-	if strings.Contains(itemLower, "rooster") {
-		contractType = "rooster"
-	}
-
-	if debug {
-		debugLogf(debug, "generatePdfRobust contractType=%s", contractType)
-	}
-
-	pdf, err := generateContractPDF(tabCtx, contractType, contractData)
-	if err != nil {
-		return nil, err
-	}
-
-	return []AttachmentProps{pdfToAttachment(contractData.Item+"-contract", contractData.NumID, pdf)}, nil
-}
-
 func pdfToAttachment(prefix string, numID int, pdf []byte) AttachmentProps {
 	return AttachmentProps{
 		Filename:    fmt.Sprintf("%s-%d.pdf", prefix, numID),
@@ -127,10 +86,13 @@ func pdfToAttachment(prefix string, numID int, pdf []byte) AttachmentProps {
 		ContentType: "application/pdf",
 	}
 }
-
 func generateSixAttachments(ctx context.Context, contractData ContractData, debug bool) ([]AttachmentProps, error) {
-	contractTypes := []string{"sales", "rental", "care", "auth", "withdraw", "receipt"}
-
+	contractTypes := []string{"receipt"}
+	directory := "contracts/" + "data/" + fmt.Sprintf("%s", contractData.Realm) + "/" + fmt.Sprintf("%s", contractData.Item)
+	data, err := os.ReadDir(directory)
+	for _, file := range data {
+		contractTypes = append(contractTypes, strings.TrimSuffix(file.Name(), filepath.Ext(file.Name())))
+	}
 	browser, cancelBrowser, err := newBrowserContext(ctx)
 	if err != nil {
 		return nil, err
@@ -142,12 +104,10 @@ func generateSixAttachments(ctx context.Context, contractData ContractData, debu
 			debugLogf(debug, "browser context canceled: err=%v cause=%v", browser.Err(), context.Cause(browser))
 		})
 	}
-
 	var (
 		mu          sync.Mutex
 		attachments []AttachmentProps
 	)
-
 	renderBatch := func(types []string) error {
 		for _, ct := range types {
 			if debug {
@@ -184,10 +144,10 @@ func generateSixAttachments(ctx context.Context, contractData ContractData, debu
 		return nil
 	}
 
-	if err := renderBatch(contractTypes[:3]); err != nil {
+	if err := renderBatch(contractTypes[:1]); err != nil {
 		return nil, err
 	}
-	if err := renderBatch(contractTypes[3:]); err != nil {
+	if err := renderBatch(contractTypes[1:]); err != nil {
 		return nil, err
 	}
 
@@ -349,15 +309,6 @@ func setDocumentHTML(html string) chromedp.Action {
 	})
 }
 
-func isThreePageContractType(contractType string) bool {
-	switch contractType {
-	case "sales", "care", "rental", "auth", "withdraw", "cattle", "rooster":
-		return true
-	default:
-		return false
-	}
-}
-
 // mergePDFBuffers merges multiple PDF byte slices into one PDF using pdfcpu.
 func mergePDFBuffers(parts [][]byte) ([]byte, error) {
 	if len(parts) == 0 {
@@ -404,41 +355,6 @@ func mergePDFBuffers(parts [][]byte) ([]byte, error) {
 // generateContractPDF produces a PDF for a given contract type. For multi-page contracts
 // (header/content/footer) it renders each template separately and merges them.
 func generateContractPDF(ctx context.Context, contractType string, contractData ContractData) ([]byte, error) {
-	// three-page style
-	if isThreePageContractType(contractType) {
-		headerHTML, err := RenderTemplateHTML("header", contractData, contractType)
-		if err != nil {
-			return nil, err
-		}
-		contentHTML, err := RenderTemplateHTML("content", contractData, contractType)
-		if err != nil {
-			return nil, err
-		}
-		footerHTML, err := RenderTemplateHTML("footer", contractData, contractType)
-		if err != nil {
-			return nil, err
-		}
-
-		headerPdf, err := generatePDF(ctx, headerHTML, defaultPDFOptions)
-		if err != nil {
-			return nil, err
-		}
-		contentPdf, err := generatePDF(ctx, contentHTML, defaultPDFOptions)
-		if err != nil {
-			return nil, err
-		}
-		footerPdf, err := generatePDF(ctx, footerHTML, defaultPDFOptions)
-		if err != nil {
-			return nil, err
-		}
-
-		merged, err := mergePDFBuffers([][]byte{headerPdf, contentPdf, footerPdf})
-		if err != nil {
-			return nil, err
-		}
-		return merged, nil
-	}
-
 	// receipt -> use shared/receipt
 	if contractType == "receipt" {
 		html, err := RenderTemplateHTML("shared/receipt", contractData, contractType)
@@ -448,12 +364,38 @@ func generateContractPDF(ctx context.Context, contractType string, contractData 
 		return generatePDF(ctx, html, defaultPDFOptions)
 	}
 
-	// fallback: render using the normal contract TSX path (RenderContractHTML)
-	html, err := RenderContractHTML(contractType, contractData)
+	// three-page style
+	headerHTML, err := RenderTemplateHTML("header", contractData, contractType)
 	if err != nil {
 		return nil, err
 	}
-	return generatePDF(ctx, html, defaultPDFOptions)
+	contentHTML, err := RenderTemplateHTML("content", contractData, contractType)
+	if err != nil {
+		return nil, err
+	}
+	footerHTML, err := RenderTemplateHTML("footer", contractData, contractType)
+	if err != nil {
+		return nil, err
+	}
+
+	headerPdf, err := generatePDF(ctx, headerHTML, defaultPDFOptions)
+	if err != nil {
+		return nil, err
+	}
+	contentPdf, err := generatePDF(ctx, contentHTML, defaultPDFOptions)
+	if err != nil {
+		return nil, err
+	}
+	footerPdf, err := generatePDF(ctx, footerHTML, defaultPDFOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	merged, err := mergePDFBuffers([][]byte{headerPdf, contentPdf, footerPdf})
+	if err != nil {
+		return nil, err
+	}
+	return merged, nil
 }
 
 func chromeExecPath() string {

@@ -574,7 +574,7 @@ const pdfUIHTML = `<!doctype html>
             <label>Region</label>
             <select id="realm">
               <option value="iraq">Iraq</option>
-              <option value="romania">Romania</option>
+              <option value="romain">Romania</option>
             </select>
           </div>
 

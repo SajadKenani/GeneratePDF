@@ -6,11 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -74,26 +75,22 @@ func imageBase64(name string) string {
 		return base64.StdEncoding.EncodeToString(data)
 	}
 
-	// 1) Explicit _B64_PATH
 	if p := tryEnv(base+"_B64_PATH", alt+"_B64_PATH"); p != "" {
 		if v := loadPath(p); v != "" {
 			return v
 		}
 	}
 
-	// 2) Explicit _B64
 	if v := tryEnv(base+"_B64", alt+"_B64"); v != "" {
 		return v
 	}
 
-	// 3) Plain path env
 	if p := tryEnv(base, alt); p != "" {
 		if v := loadPath(p); v != "" {
 			return v
 		}
 	}
 
-	// 4) Friendly fallbacks for common names
 	if base == "LOGO" {
 		if p := tryEnv("MAIN_LOGO_B64_PATH", "MAINLOGO_B64_PATH"); p != "" {
 			if v := loadPath(p); v != "" {
@@ -132,7 +129,7 @@ func imageBase64(name string) string {
 // This stays Go-only (no Node/React execution) by extracting the JSX returned from the component and
 // applying a targeted conversion + placeholder substitution.
 func RenderContractHTML(contractType string, c ContractData) (string, error) {
-	tsxPath := contractTSXPath(contractType, c)
+	tsxPath := contractTSXPath(contractType)
 	if tsxPath == "" {
 		// fallback (only for missing templates like withdraw/receipt)
 		return minimalFallbackHTML(contractType, c), nil
@@ -144,36 +141,21 @@ func RenderContractHTML(contractType string, c ContractData) (string, error) {
 	}
 
 	vars := buildTSXVars(c)
-	htmlOut := tsxToHTML(jsx, vars, contractType)
+	_, title := generateContentHTML(c, vars, contractType)
+	htmlOut := tsxToHTML(title, jsx, vars)
 	if strings.TrimSpace(htmlOut) == "" {
 		return "", fmt.Errorf("tsx conversion produced empty html for %q", tsxPath)
 	}
 	return htmlOut, nil
 }
 
-func contractTSXPath(contractType string, c ContractData) string {
-	realm := strings.ToLower(strings.TrimSpace(c.Realm))
-
+func contractTSXPath(contractType string) string {
 	rel := ""
-	switch contractType {
-	case "cattle":
-		rel = filepath.Join("contracts", "templates", "cattle.tsx")
-	case "rooster":
-		// Rooster uses the same visual template as cattle
-		rel = filepath.Join("contracts", "templates", "cattle.tsx")
-	case "sales", "rental", "care", "auth":
-		if realm == "romania" {
-			// prefer generic templates shipped under contracts/templates
-			rel = filepath.Join("contracts", "templates", "content.tsx")
-		} else {
-			rel = filepath.Join("contracts", "templates", "content.tsx")
-		}
-	case "withdraw", "receipt":
+	if contractType == "receipt" {
 		rel = filepath.Join("contracts", "templates", "shared", contractType+".tsx")
-	default:
-		rel = ""
+	} else {
+		rel = filepath.Join("contracts", "templates", "content.tsx")
 	}
-
 	if rel == "" {
 		return ""
 	}
@@ -205,10 +187,10 @@ func RenderTemplateHTML(relPath string, c ContractData, contractType string) (st
 	// If template expects `content` injected via dangerouslySetInnerHTML or {content},
 	// build the content HTML and replace occurrences before conversion.
 	if strings.Contains(jsx, "dangerouslySetInnerHTML") || strings.Contains(jsx, "{content}") {
-		contentHTML := generateContentHTML(contractType, vars)
+		contentHTML, title := generateContentHTML(c, vars, contractType)
 		if contentHTML == "" {
 			// fallback to normal path
-			htmlOut := tsxToHTML(jsx, vars, contractType)
+			htmlOut := tsxToHTML(title, jsx, vars)
 			if strings.TrimSpace(htmlOut) == "" {
 				return "", fmt.Errorf("tsx conversion produced empty html for %q", tsxPath)
 			}
@@ -221,15 +203,15 @@ func RenderTemplateHTML(relPath string, c ContractData, contractType string) (st
 		jsx = strings.ReplaceAll(jsx, "dangerouslySetInnerHTML={{__html:content}}", marker)
 		jsx = strings.ReplaceAll(jsx, "{content}", marker)
 
-		htmlOut := tsxToHTML(jsx, vars, contractType)
+		htmlOut := tsxToHTML(title, jsx, vars)
 		htmlOut = strings.ReplaceAll(htmlOut, marker, contentHTML)
 		if strings.TrimSpace(htmlOut) == "" {
 			return "", fmt.Errorf("tsx conversion produced empty html for %q", tsxPath)
 		}
 		return htmlOut, nil
 	}
-
-	htmlOut := tsxToHTML(jsx, vars, contractType)
+	_, title := generateContentHTML(c, vars, contractType)
+	htmlOut := tsxToHTML(title, jsx, vars)
 	if strings.TrimSpace(htmlOut) == "" {
 		return "", fmt.Errorf("tsx conversion produced empty html for %q", tsxPath)
 	}
@@ -373,12 +355,11 @@ func extractReturnJSX(tsx string) (string, error) {
 	return "", errors.New("unterminated return(...) block")
 }
 
-func tsxToHTML(jsx string, v tsxVars, contractType string) string {
+func tsxToHTML(title string, jsx string, v tsxVars) string {
 	s := jsx
-
 	s = regexp.MustCompile(`\{\s*/\*[\s\S]*?\*/\s*\}`).ReplaceAllString(s, "")
 	s = strings.ReplaceAll(s, "{\" \"}", " ")
-	s = strings.ReplaceAll(s, "{\"\n\"}", "\n")
+	s = strings.ReplaceAll(s, "{\"\n\"}", "")
 	s = strings.ReplaceAll(s, "<Html", "<html")
 	s = strings.ReplaceAll(s, "</Html>", "</html>")
 	s = strings.ReplaceAll(s, "<Head>", "<head>")
@@ -404,6 +385,7 @@ func tsxToHTML(jsx string, v tsxVars, contractType string) string {
 	s = regexp.MustCompile(`\s+src=\{[^}]*\}`).ReplaceAllString(s, ` src=""`)
 	s = strings.ReplaceAll(s, "{currency.toUpperCase()}", html.EscapeString(v.CurrencyUpper))
 	s = strings.ReplaceAll(s, "{currency.toLowerCase()}", html.EscapeString(strings.ToLower(v.Currency)))
+	s = strings.ReplaceAll(s, "// ", "")
 	s = regexp.MustCompile(`\{\s*new\s+Decimal\(\s*currencyAmount\s*/\s*itemAmount\s*\)\.round\(\)\.toString\(\)\s*\}`).ReplaceAllString(s, html.EscapeString(v.UnitPriceRounded))
 	s = regexp.MustCompile(`\{\s*insurance\s*\?\s*1\s*:\s*0\s*\}`).ReplaceAllString(s, html.EscapeString(v.InsuranceYears010))
 	s = regexp.MustCompile("\\{`([^`]*)\\$\\{realm\\}([^`]*)`\\}").ReplaceAllString(s, "${1}"+html.EscapeString(v.Realm)+"${2}")
@@ -417,6 +399,7 @@ func tsxToHTML(jsx string, v tsxVars, contractType string) string {
 	s = replaceSimpleTSXVar(s, "currencyAmount", v.CurrencyAmount)
 	s = replaceSimpleTSXVar(s, "paymentMethod", v.PaymentMethod)
 	s = replaceSimpleTSXVar(s, "realm", v.Realm)
+	s = replaceSimpleTSXVar(s, "title", title)
 	// Date variable inside templates is called {date}
 	// We pick a reasonable default (numeric); cattle uses short month, but that's also fine.
 	dateVal := v.DateNumeric
@@ -424,7 +407,6 @@ func tsxToHTML(jsx string, v tsxVars, contractType string) string {
 		dateVal = v.DateShort
 	}
 	s = replaceSimpleTSXVar(s, "date", dateVal)
-
 	// Some templates precompute insurance string and use {insurance}
 	// We don't execute TS; replace with Arabic Yes/No if dir="rtl" is present.
 	insuranceVal := v.InsuranceYesNoEn
@@ -485,7 +467,7 @@ func tsxToHTML(jsx string, v tsxVars, contractType string) string {
 	// Before stripping generic expressions, handle in-template content arrays like
 	// {content?.content?.map((term, index) => ( ... ))} by loading the JSON
 	// `contracts/data/{realm}/{contractType}.json` and rendering matching HTML.
-	s = inlineContentArray(s, contractType, v)
+	s = inlineContentArray(s, v)
 
 	s = regexp.MustCompile(`\{[^{}]*\}`).ReplaceAllString(s, "")
 
@@ -507,7 +489,7 @@ func replaceSimpleTSXVar(s string, name string, value string) string {
 
 // inlineContentArray looks for a common JSX pattern that maps over `content.content`
 // and replaces it with HTML generated from the JSON content file for the contract.
-func inlineContentArray(s string, contractType string, v tsxVars) string {
+func inlineContentArray(s string, v tsxVars) string {
 	// quick check
 	if !strings.Contains(s, "content?.content?.map") && !strings.Contains(s, "content.content.map") {
 		return s
@@ -516,34 +498,9 @@ func inlineContentArray(s string, contractType string, v tsxVars) string {
 	re := regexp.MustCompile(`(?s)\{\s*content\?\.?content\?\.?\.map\([^}]*?\)\s*\)\s*\}`)
 	return re.ReplaceAllStringFunc(s, func(_ string) string {
 		// Load JSON file for this contract type and realm
-		realm := strings.ToLower(strings.TrimSpace(v.Realm))
 		// try multiple candidate locations to mirror the JS CONTENT_MAP
-		candidates := []string{}
-		if realm == "romania" || realm == "romain" {
-			candidates = append(candidates,
-				filepath.Join("contracts", "data", "romain", contractType+".json"),
-				filepath.Join("contracts", "data", "romain", contractType, contractType+".json"),
-				filepath.Join("contracts", "data", "romain", "hen", contractType+".json"),
-				filepath.Join("contracts", "data", "romain", "cattle", "cattle.json"),
-				filepath.Join("contracts", "data", "romain", "rooster", "rooster.json"),
-			)
-		} else {
-			candidates = append(candidates,
-				filepath.Join("contracts", "data", "iraq", contractType+".json"),
-				filepath.Join("contracts", "data", "iraq", contractType, contractType+".json"),
-			)
-		}
-		// shared fallback
-		candidates = append(candidates, filepath.Join("contracts", "data", "shared", contractType+".json"))
-		candidates = append(candidates, filepath.Join("contracts", "data", "shared", "withdraw.json"))
+		dataPath := findDataFile(v.Realm, v.Item)
 
-		dataPath := ""
-		for _, c := range candidates {
-			if _, err := os.Stat(c); err == nil {
-				dataPath = c
-				break
-			}
-		}
 		if dataPath == "" {
 			return ""
 		}
@@ -578,9 +535,7 @@ func inlineContentArray(s string, contractType string, v tsxVars) string {
 				for k := range lineObj {
 					keys = append(keys, k)
 				}
-				sort.Slice(keys, func(i, j int) bool {
-					return keys[i] < keys[j]
-				})
+				slices.Sort(keys)
 				for _, k := range keys {
 					txt := lineObj[k]
 					// replace placeholders
@@ -611,42 +566,50 @@ func interpolateJsonPlaceholders(text string, currencyAmount string, date string
 	return out
 }
 
+// findDataFile searches recursively for {item}.json in contracts/data/{realm}
+func findDataFile(realm string, item string) string {
+	// Try direct path first: contracts/data/{realm}/{item}.json
+	directPath := filepath.Join("contracts", "data", realm, item+".json")
+	if _, err := os.Stat(directPath); err == nil {
+		return directPath
+	}
+
+	// Try nested structure: contracts/data/{realm}/{subdir}/{item}.json
+	realmPath := filepath.Join("contracts", "data", realm)
+	var foundPath string
+
+	filepath.WalkDir(realmPath, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && strings.HasSuffix(path, filepath.Join(item+".json")) {
+			foundPath = path
+			return filepath.SkipDir // Stop searching once found
+		}
+		return nil
+	})
+
+	return foundPath
+}
+
 // generateContentHTML produces the HTML used when templates inject `content` via
 // dangerouslySetInnerHTML or {content}.
-func generateContentHTML(contractType string, v tsxVars) string {
-	realm := strings.ToLower(strings.TrimSpace(v.Realm))
-	candidates := []string{}
-	if realm == "romania" || realm == "romain" {
-		candidates = append(candidates,
-			filepath.Join("contracts", "data", "romain", contractType+".json"),
-			filepath.Join("contracts", "data", "romain", contractType, contractType+".json"),
-			filepath.Join("contracts", "data", "romain", "hen", contractType+".json"),
-			filepath.Join("contracts", "data", "romain", "cattle", "cattle.json"),
-			filepath.Join("contracts", "data", "romain", "rooster", "rooster.json"),
-		)
-	} else {
-		candidates = append(candidates,
-			filepath.Join("contracts", "data", "iraq", contractType+".json"),
-			filepath.Join("contracts", "data", "iraq", contractType, contractType+".json"),
-		)
+func generateContentHTML(c ContractData, v tsxVars, contractType string) (string, string) {
+	// Use contractType to find the correct data file (e.g., "sales", "auth", etc.)
+	// If contractType is empty, fall back to using Item
+	item := contractType
+	if item == "" {
+		item = c.Item
 	}
-	candidates = append(candidates, filepath.Join("contracts", "data", "shared", contractType+".json"))
-	candidates = append(candidates, filepath.Join("contracts", "data", "shared", "withdraw.json"))
 
-	dataPath := ""
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
-			dataPath = c
-			break
-		}
-	}
+	dataPath := findDataFile(c.Realm, item)
 	if dataPath == "" {
-		return ""
+		return "", ""
 	}
 
 	b, err := os.ReadFile(dataPath)
 	if err != nil {
-		return ""
+		return "", ""
 	}
 
 	var root struct {
@@ -657,8 +620,10 @@ func generateContentHTML(contractType string, v tsxVars) string {
 		} `json:"content"`
 	}
 	if err := json.Unmarshal(b, &root); err != nil {
-		return ""
+		return "", ""
 	}
+
+	log.Print("root.Content: ", root.Title)
 
 	var out strings.Builder
 	for _, term := range root.Content {
@@ -672,7 +637,7 @@ func generateContentHTML(contractType string, v tsxVars) string {
 			for k := range lineObj {
 				keys = append(keys, k)
 			}
-			sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+			slices.Sort(keys)
 			for _, k := range keys {
 				txt := lineObj[k]
 				rendered := interpolateJsonPlaceholders(txt, v.CurrencyAmount, v.DateNumeric, v.ItemAmount)
@@ -686,7 +651,7 @@ func generateContentHTML(contractType string, v tsxVars) string {
 		out.WriteString(`</div>`)
 	}
 
-	return out.String()
+	return out.String(), root.Title
 }
 
 func convertStyleObjects(s string) string {
