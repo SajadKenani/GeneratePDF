@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"html"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -547,7 +546,6 @@ func inlineContentArray(s string, v tsxVars) string {
 					out.WriteString(`</p>`)
 				}
 			}
-
 			out.WriteString(`</div>`)
 		}
 
@@ -622,8 +620,6 @@ func generateContentHTML(c ContractData, v tsxVars, contractType string) (string
 	if err := json.Unmarshal(b, &root); err != nil {
 		return "", ""
 	}
-
-	log.Print("root.Content: ", root.Title)
 
 	var out strings.Builder
 	for _, term := range root.Content {

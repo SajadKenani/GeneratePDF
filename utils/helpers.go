@@ -2,10 +2,8 @@ package utils
 
 import (
 	"fmt"
-
 	"log"
 	"net/http"
-
 	"github.com/gin-gonic/gin"
 
 )

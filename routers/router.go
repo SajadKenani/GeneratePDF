@@ -30,9 +30,6 @@ func SetupRouter() *gin.Engine {
 		c.Next()
 	})
 
-	r.Static("/uploads", utils.UploadsDir())
-	r.Static("/compressed", utils.CompressedDir())
-
 	allowedOrigin := strings.TrimSpace(os.Getenv("ALLOWED_ORIGIN"))
 	corsCfg := cors.Config{
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
@@ -58,7 +55,6 @@ func SetupRouter() *gin.Engine {
 	{
 		auth.POST("/pdf/generatePDF", handleGeneratePDF)
 		auth.POST("/pdf/preview/:type", handlePreviewContractHTML)
-		// auth.POST("/email/deposit", handleSendDepositEmail)
 	}
 
 	return r

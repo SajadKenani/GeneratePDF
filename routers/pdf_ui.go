@@ -585,7 +585,7 @@ const pdfUIHTML = `<!doctype html>
           
           <div class="form-group">
             <label>Creation Date</label>
-            <input id="createdAt" placeholder="2026-01-11T12:34:56Z" />
+            <input id="createdAt" placeholder="2026-01-11T12:34:56Z" disabled />
           </div>
 
           <div class="form-group">
@@ -745,8 +745,6 @@ const pdfUIHTML = `<!doctype html>
         parsed.userEmail = line.split(':')[1]?.trim();
       } else if (/Phone:/i.test(line)) {
         parsed.userPhone = line.split(':')[1]?.trim();
-      } else if (/Country:/i.test(line)) {
-        parsed.realm = normalizeRealm(line.split(':')[1]?.trim());
       } else if (/Item Amount:/i.test(line)) {
         const amt = parseNumeric(line.split(':')[1]);
         if (amt !== null) parsed.itemAmount = amt;
