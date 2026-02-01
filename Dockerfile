@@ -28,12 +28,9 @@ WORKDIR /app
 # Create working dirs for static files
 RUN mkdir -p /app/uploads /app/compressed
 
-# Copy TSX contract templates needed at runtime
 COPY --from=builder /src/contracts /app/contracts
-
-# Copy images used by contract templates (if present)
 COPY --from=builder /src/images /app/images
-
+COPY --from=builder /src/index.html /app/index.html
 COPY --from=builder /out/backend /usr/local/bin/backend
 
 EXPOSE 8080

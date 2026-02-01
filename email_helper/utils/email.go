@@ -174,11 +174,13 @@ func RenderDepositEmailHTML(userName string) string {
 	}
 	userName = htmlEscape(userName)
 	return fmt.Sprintf(`<!doctype html>
-<html><body style="font-family:Arial, sans-serif; color:#111">
-  <p>Hi %s,</p>
-  <p>Your deposit contract is attached as PDF.</p>
-  <p style="color:#666; font-size:12px">If you did not request this, please ignore.</p>
-</body></html>`, userName)
+		<html>
+			<body style="font-family:Arial, sans-serif; color:#111">
+				<p>Hi %s,</p>
+				<p>Your deposit contract is attached as PDF.</p>
+				<p style="color:#666; font-size:12px">If you did not request this, please ignore.</p>
+			</body>
+		</html>`, userName)
 }
 
 func SendDepositEmail(ctx context.Context, contractData ContractData, attachments []AttachmentProps) error {
