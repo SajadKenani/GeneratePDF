@@ -665,6 +665,13 @@
     return v || '';
   }
 
+  // Maps the UI realm value to the value sent to the backend.
+  // "romania" is displayed in the UI but sent as "romain" to the backend.
+  function toBackendRealm(realm) {
+    if (realm === 'romania') return 'romain';
+    return realm;
+  }
+
   function setSelectValue(id, value) {
     const sel = document.getElementById(id);
     const cleaned = (value || '').trim();
@@ -880,7 +887,7 @@
       createdAt: dateOnly + "T15:04:05+00:00",
       itemAmount: Number(val('itemAmount')),
       paymentMethod: val('paymentMethod').trim(),
-      realm: val('realm').trim(),
+      realm: toBackendRealm(val('realm').trim()),
       currency: val('currency').trim(),
       currencyAmount: Number(val('currencyAmount')),
       userName: val('userName').trim(),
