@@ -2,7 +2,8 @@ package routers
 
 import (
 	"Backend/utils"
-	"context"
+	"encoding/base64"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -11,24 +12,26 @@ import (
 )
 
 type contractRequest struct {
-	NumID          int     `json:"numId"`
-	CreatedAt      string  `json:"createdAt"`
-	ItemAmount     float64 `json:"itemAmount"`
-	PaymentMethod  string  `json:"paymentMethod"`
-	Realm          string  `json:"realm"`
-	Currency       string  `json:"currency"`
-	CurrencyAmount float64 `json:"currencyAmount"`
-	UserName       string  `json:"userName"`
-	UserPhone      string  `json:"userPhone"`
-	UserEmail      string  `json:"userEmail"`
-	Item           string  `json:"item"`
-	Insurance      bool    `json:"insurance"`
+	NumID          int                     `json:"numId"`
+	CreatedAt      string                  `json:"createdAt"`
+	ItemAmount     float64                 `json:"itemAmount"`
+	PaymentMethod  string                  `json:"paymentMethod"`
+	Realm          string                  `json:"realm"`
+	Currency       string                  `json:"currency"`
+	CurrencyAmount float64                 `json:"currencyAmount"`
+	UserName       string                  `json:"userName"`
+	UserPhone      string                  `json:"userPhone"`
+	UserEmail      string                  `json:"userEmail"`
+	Package 	   string					`json:"package"`
+	Item           string                  `json:"item"`
+	Insurance      bool                    `json:"insurance"`
+	Attachments    []utils.AttachmentProps `json:"attachments"`
 }
 
-func parseContractDataFromJSON(ctx *gin.Context) (utils.ContractData, error) {
+func parseContractDataFromJSON(c *gin.Context) (utils.ContractData, []utils.AttachmentProps, error) {
 	var req contractRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		return utils.ContractData{}, err
+	if err := c.ShouldBindJSON(&req); err != nil {
+		return utils.ContractData{}, nil, err
 	}
 
 	createdAt, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(req.CreatedAt))
@@ -36,7 +39,7 @@ func parseContractDataFromJSON(ctx *gin.Context) (utils.ContractData, error) {
 		createdAt, err = time.Parse(time.RFC3339, strings.TrimSpace(req.CreatedAt))
 	}
 	if err != nil {
-		return utils.ContractData{}, err
+		return utils.ContractData{}, nil, err
 	}
 
 	return utils.ContractData{
@@ -50,52 +53,39 @@ func parseContractDataFromJSON(ctx *gin.Context) (utils.ContractData, error) {
 		UserName:       req.UserName,
 		UserPhone:      req.UserPhone,
 		UserEmail:      req.UserEmail,
+		Package:      req.Package,
 		Item:           req.Item,
 		Insurance:      req.Insurance,
-	}, nil
+	}, req.Attachments, nil
 }
 
-func handleGeneratePDF(c *gin.Context) {
-	contractData, err := parseContractDataFromJSON(c)
+func HandleStampPDF(ctx *gin.Context) {
+	contractData, _, err := parseContractDataFromJSON(ctx)
 	if err != nil {
-		utils.HandleError(c, err, "invalid request body (createdAt must be RFC3339)", http.StatusBadRequest)
+		utils.HandleError(ctx, err, "invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Use a background-based context so a client disconnect does not cancel Chrome mid-start.
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-
-	attachments, err := utils.GetDepositAttachments(ctx, contractData)
+	stamps, err := utils.GetStampsForRealm(contractData.Realm, contractData)
 	if err != nil {
-		utils.HandleError(c, err, "failed to generate pdf", http.StatusInternalServerError)
+		utils.HandleError(ctx, err, "no positions configured for this contract", http.StatusInternalServerError)
 		return
 	}
 
-	utils.RespondOK(c, gin.H{
-		"attachments": attachments,
+	pdfPath := "/app/pdf/" + contractData.Realm + "/contract.pdf"
+	result, err := utils.StampPDF(pdfPath, stamps)
+	if err != nil {
+		utils.HandleError(ctx, err, "failed to stamp pdf", http.StatusInternalServerError)
+		return
+	}
+
+	encoded := base64.StdEncoding.EncodeToString(result)
+	utils.RespondOK(ctx, gin.H{
+		"attachments": []gin.H{{
+			"filename":    fmt.Sprintf("contract-%d.pdf", contractData.NumID),
+			"content":     encoded,
+			"encoding":    "base64",
+			"contentType": "application/pdf",
+		}},
 	})
-}
-
-func handlePreviewContractHTML(c *gin.Context) {
-	contractType := strings.TrimSpace(c.Param("type"))
-	if contractType == "" {
-		utils.HandleError(c, nil, "missing contract type", http.StatusBadRequest)
-		return
-	}
-
-	contractData, err := parseContractDataFromJSON(c)
-	if err != nil {
-		utils.HandleError(c, err, "invalid request body (createdAt must be RFC3339)", http.StatusBadRequest)
-		return
-	}
-
-	html, err := utils.RenderContractHTML(contractType, contractData)
-	if err != nil {
-		utils.HandleError(c, err, "failed to render contract html", http.StatusInternalServerError)
-		return
-	}
-
-	c.Header("Cache-Control", "no-store")
-	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }

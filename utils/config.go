@@ -14,7 +14,6 @@ type Config struct {
 	ClientUsername string
 	ClientPassword string
 }
-
 func LoadConfig() (*Config, error) {
 	_ = godotenv.Load()
 

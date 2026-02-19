@@ -2,11 +2,11 @@ package utils
 
 import (
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
-	"github.com/gin-gonic/gin"
-
 )
+
 func HandleError(ctx *gin.Context, err error, message string, statusCode ...int) {
 	code := http.StatusInternalServerError
 	if len(statusCode) > 0 {
@@ -26,7 +26,6 @@ func HandleError(ctx *gin.Context, err error, message string, statusCode ...int)
 	log.SetFlags(log.LstdFlags | log.Lshortfile) // Add this line to configure log output
 	log.Printf("ERROR: %s | %v", message, err)
 
-	// Return a JSON response with error information
 	var details string
 	if err != nil {
 		details = err.Error()

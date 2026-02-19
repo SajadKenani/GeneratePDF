@@ -43,11 +43,9 @@ const (
 	defaultSMTPPass = "xtwhlshqszeaonfg"
 )
 
-// deriveFromAddress returns the fixed sender.
 func deriveFromAddress() string {
 	return defaultSMTPUser
 }
-
 func smtpTimeout() time.Duration {
 	if v := strings.TrimSpace(os.Getenv("EMAIL_TIMEOUT_SECONDS")); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
@@ -56,7 +54,6 @@ func smtpTimeout() time.Duration {
 	}
 	return 20 * time.Second
 }
-
 func tlsConfigForHost(host string) *tls.Config {
 	return &tls.Config{
 		ServerName:         host,
@@ -64,9 +61,7 @@ func tlsConfigForHost(host string) *tls.Config {
 		InsecureSkipVerify: strings.EqualFold(strings.TrimSpace(os.Getenv("EMAIL_TLS_INSECURE")), "true"),
 	}
 }
-
 func getSMTPDialer() (*gomail.Dialer, error) {
-	// Fixed SMTP settings as requested (no env lookup)
 	host := defaultSMTPHost
 	port := defaultSMTPPort
 	user := defaultSMTPUser

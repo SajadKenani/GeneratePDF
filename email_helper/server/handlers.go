@@ -21,6 +21,7 @@ type contractRequest struct {
 	UserName       string                  `json:"userName"`
 	UserPhone      string                  `json:"userPhone"`
 	UserEmail      string                  `json:"userEmail"`
+	Package        string                  `json:"package"`
 	Item           string                  `json:"item"`
 	Insurance      bool                    `json:"insurance"`
 	Attachments    []utils.AttachmentProps `json:"attachments"`
@@ -51,6 +52,7 @@ func parseContractDataFromJSON(c *gin.Context) (utils.ContractData, []utils.Atta
 		UserName:       req.UserName,
 		UserPhone:      req.UserPhone,
 		UserEmail:      req.UserEmail,
+		Package:        req.Package,
 		Item:           req.Item,
 		Insurance:      req.Insurance,
 	}, req.Attachments, nil

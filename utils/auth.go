@@ -120,4 +120,3 @@ func AuthenticateMiddleware() gin.HandlerFunc {
 		ctx.Next()
 	}
 }
-

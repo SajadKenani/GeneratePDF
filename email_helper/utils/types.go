@@ -14,6 +14,7 @@ type ContractData struct {
 	UserName       string    `json:"userName"`
 	UserPhone      string    `json:"userPhone"`
 	UserEmail      string    `json:"userEmail"`
+	Package        string    `json:"package"`
 	Item           string    `json:"item"`
 	Insurance      bool      `json:"insurance"`
 }

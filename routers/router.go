@@ -48,13 +48,17 @@ func SetupRouter() *gin.Engine {
 		c.Status(http.StatusOK)
 	})
 
-	r.GET("/pdf/ui", servePDFUI)
+	r.GET("/pdf-ui", servePDFUI) // was /pdf/ui
 	r.POST("/api/pdf-ui/login", utils.PDFUILoginHandler)
+	r.Static("/pdf", "/app/pdf")
+
 	auth := r.Group("/api")
 	auth.Use(utils.AuthenticateMiddleware())
 	{
-		auth.POST("/pdf/generatePDF", handleGeneratePDF)
-		auth.POST("/pdf/preview/:type", handlePreviewContractHTML)
+		auth.POST("/pdf/generatePDF", HandleStampPDF)
+		auth.POST("/pdf/positions", HandleSavePositions)
+		auth.GET("/pdf/positions", HandleGetPositions)
+		// auth.POST("/pdf/preview/:type", handlePreviewContractHTML)
 	}
 
 	return r
