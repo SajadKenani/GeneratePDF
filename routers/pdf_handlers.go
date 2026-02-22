@@ -45,7 +45,7 @@ func HandleStampPDF(ctx *gin.Context) {
 		return
 	}
 
-	pdfPath := "/app/pdf/" + contractData.Realm + "/contract.pdf"
+	pdfPath := "/app/pdf/" + contractData.Realm + "/" + contractData.Realm +".pdf"
 	result, err := utils.StampPDF(pdfPath, stamps)
 	if err != nil {
 		utils.HandleError(ctx, err, "failed to stamp pdf", http.StatusInternalServerError)
