@@ -23,11 +23,20 @@ RUN mkdir -p /tmp/chrome-runtime /tmp/chrome-crash && chmod 700 /tmp/chrome-runt
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pdftk \
     poppler-utils \
+    wget \
+    ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 RUN mkdir -p /app/uploads /app/compressed
+
+# Download Arabic font - use direct download link
+RUN mkdir -p /app/fonts && \
+    wget --no-check-certificate -O /app/fonts/NotoSansArabic-Regular.ttf \
+    "https://github.com/notofonts/notofonts.github.io/raw/main/fonts/NotoSansArabic/hinted/ttf/NotoSansArabic-Regular.ttf" && \
+    ls -la /app/fonts/ && \
+    echo "Font downloaded successfully"
 
 COPY --from=builder /src/pdf /app/pdf
 COPY --from=builder /src/images /app/images

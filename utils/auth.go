@@ -28,19 +28,16 @@ func PDFUILoginHandler(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON provided"})
 		return
 	}
-
 	want := getPDFUIPassword()
 	got := strings.TrimSpace(body.Password)
 	if want == "" {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "PDF UI password is not configured"})
 		return
 	}
-
 	if subtle.ConstantTimeCompare([]byte(want), []byte(got)) != 1 {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid password"})
 		return
 	}
-
 	token, err := GenerateJWT("pdf-ui")
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})

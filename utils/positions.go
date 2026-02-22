@@ -67,11 +67,12 @@ func entriesToStamps(entries []PositionEntry, c ContractData) []TextStamp {
 	for _, e := range entries {
 		text := fieldValue(e.FieldKey, c)
 		stamps = append(stamps, TextStamp{
-			Text:     text,
-			X:        e.X,
-			Y:        e.Y,
-			FontSize: e.FontSize,
-			Page:     e.Page,
+			Text:       text,
+			X:          e.X,
+			Y:          e.Y,
+			FontSize:   e.FontSize,
+			Page:       e.Page,
+			FontFamily: "system",
 		})
 	}
 	return stamps
@@ -79,19 +80,33 @@ func entriesToStamps(entries []PositionEntry, c ContractData) []TextStamp {
 
 func fieldValue(key string, c ContractData) string {
 	switch key {
-	case "NumID": return fmt.Sprintf("%d", c.NumID)
-	case "CreatedAt": return c.CreatedAt.Format("02.01.2006")
-	case "ItemAmount": return fmt.Sprintf("%g", c.ItemAmount)
-	case "PaymentMethod": return c.PaymentMethod
-	case "Realm": return c.Realm
-	case "Currency": return c.Currency
-	case "CurrencyAmount": return fmt.Sprintf("%g", c.CurrencyAmount)
-	case "UserName": return c.UserName
-	case "UserPhone": return c.UserPhone
-	case "UserEmail": return c.UserEmail
-	case "Package": return c.Package
-	case "Item": return c.Item
-	case "Insurance": return fmt.Sprintf("%t", c.Insurance)
-	default: return ""
+	case "NumID":
+		return fmt.Sprintf("%d", c.NumID)
+	case "CreatedAt":
+		return c.CreatedAt.Format("02.01.2006")
+	case "ItemAmount":
+		return fmt.Sprintf("%g", c.ItemAmount)
+	case "PaymentMethod":
+		return c.PaymentMethod
+	case "Realm":
+		return c.Realm
+	case "Currency":
+		return c.Currency
+	case "CurrencyAmount":
+		return fmt.Sprintf("%g", c.CurrencyAmount)
+	case "UserName":
+		return c.UserName
+	case "UserPhone":
+		return c.UserPhone
+	case "UserEmail":
+		return c.UserEmail
+	case "Package":
+		return fmt.Sprintf("%s", c.Package)
+	case "Item":
+		return c.Item
+	case "Insurance":
+		return fmt.Sprintf("%t", c.Insurance)
+	default:
+		return ""
 	}
 }
