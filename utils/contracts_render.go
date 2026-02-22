@@ -219,18 +219,13 @@ func buildOverlayPDF(templatePDFPath string, stamps []TextStamp) ([]byte, error)
 	pdf.SetMargins(0, 0, 0)
 	pdf.SetAutoPageBreak(false, 0)
 
-	// Load Arabic font
+	// Load font directly from bytes — no temp file, no path issues
 	fontData, err := os.ReadFile("/app/fonts/NotoSansArabic-Regular.ttf")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read Arabic font: %w", err)
 	}
-	tmpFont := "/tmp/NotoSansArabic-Regular.ttf"
-	if err := os.WriteFile(tmpFont, fontData, 0644); err != nil {
-		return nil, fmt.Errorf("failed to write temp font: %w", err)
-	}
-	defer os.Remove(tmpFont)
 
-	pdf.AddUTF8Font("NotoArabic", "", tmpFont)
+	pdf.AddUTF8FontFromBytes("NotoArabic", "", fontData)
 	if pdf.Error() != nil {
 		return nil, fmt.Errorf("failed to load Arabic font: %w", pdf.Error())
 	}
@@ -249,7 +244,6 @@ func buildOverlayPDF(templatePDFPath string, stamps []TextStamp) ([]byte, error)
 				pdf.SetFont("NotoArabic", "", s.FontSize)
 				displayText = processArabicText(s.Text)
 
-				// Right-align from the anchor X position
 				textWidth := pdf.GetStringWidth(displayText)
 				pdf.SetXY(s.X-textWidth, s.Y)
 			} else {
