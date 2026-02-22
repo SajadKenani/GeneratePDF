@@ -1117,8 +1117,8 @@
           <div class="sb-head">Contract</div>
           <select class="ct-select" id="ct-select" onchange="loadContract()">
             <option value="">— Select —</option>
-            <option value="/pdf/romain/contract.pdf">Romania</option>
-            <option value="/pdf/iraq/contract.pdf">Iraq</option>
+            <option value="/pdf/romain/romain.pdf">Romania</option>
+            <option value="/pdf/iraq/iraq.pdf">Iraq</option>
           </select>
           <div class="page-ctrl">
             <button class="page-btn" id="btn-prev" disabled>‹</button>
@@ -1680,13 +1680,13 @@
           + (l.id === selId ? ' active' : '')
           + (!onThisPage ? ' other-page' : '');
         item.innerHTML = `
-      <div class="label-dot"></div>
-      <div class="label-info">
-        <div class="label-name">${esc(l.fieldLabel)}</div>
-        <div class="label-meta">p${l.page} · X:${l.xMM.toFixed(1)} Y:${l.yMM.toFixed(1)} · ${l.size}pt</div>
-      </div>
-      <button class="label-rm" title="Remove">×</button>
-    `;
+        <div class="label-dot"></div>
+          <div class="label-info">
+            <div class="label-name">${esc(l.fieldLabel)}</div>
+            <div class="label-meta">p${l.page} · X:${l.xMM.toFixed(1)} Y:${l.yMM.toFixed(1)} · ${l.size}pt</div>
+          </div>
+          <button class="label-rm" title="Remove">×</button>
+        `;
         item.querySelector('.label-rm').onclick = e => {
           e.stopPropagation();
           posLabels = posLabels.filter(x => x.id !== l.id);
